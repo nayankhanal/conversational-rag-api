@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic[email]
+pydantic-settings
+sqlalchemy[asyncio]
+aiosqlite
+qdrant-client
+redis
+openai
+pypdf
