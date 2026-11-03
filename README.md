@@ -6,21 +6,26 @@ No FAISS/Chroma, no `RetrievalQAChain`, no UI — the RAG pipeline is hand-writt
 | Concern | Choice |
 |---|---|
 | API | FastAPI (async) |
-| Vector DB | Qdrant |
+| Vector DB | Qdrant (embedded local mode by default; server/Cloud via `QDRANT_URL`) |
 | Metadata + bookings | SQLite via async SQLAlchemy (swap `DATABASE_URL` for Postgres) |
 | Chat memory | Redis (capped list per session, TTL) |
-| LLM + embeddings | OpenAI (`gpt-4o-mini`, `text-embedding-3-small`) |
+| LLM + embeddings | Google Gemini free tier via its OpenAI-compatible API (`gemini-3.5-flash`, `gemini-embedding-001`). Any OpenAI-compatible provider works by changing `LLM_BASE_URL` and the model settings |
 
-## Run
+## Run locally
 
-```bash
-docker compose up -d                 # Qdrant + Redis
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-cp .env.example .env                 # set OPENAI_API_KEY
-.venv/bin/uvicorn app.main:app --reload
-```
+1. Redis: `brew install redis && brew services start redis` (check: `redis-cli ping` -> `PONG`)
+2. Free Gemini key: https://aistudio.google.com/apikey
+3. ```bash
+   python3 -m venv .venv && source .venv/bin/activate
+   pip install -r requirements.txt
+   cp .env.example .env          # paste your key as LLM_API_KEY
+   uvicorn app.main:app --reload
+   ```
 
-Docs: http://localhost:8000/docs
+Docs: http://localhost:8000/docs. Qdrant data is stored in `./qdrant_data` (no server needed).
+`docker compose up -d` still starts Qdrant + Redis servers if you prefer; then set
+`QDRANT_URL=http://localhost:6333`. If you change the embedding model, set
+`EMBEDDING_DIMENSIONS` to its output size and use a fresh `QDRANT_PATH`/collection.
 
 ## APIs
 

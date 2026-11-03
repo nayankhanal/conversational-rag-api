@@ -13,7 +13,7 @@ _ANALYSIS_PROMPT = """\
 You analyze one user turn in a conversation with a document-QA assistant that can also book \
 interviews. Today is {today}.
 
-Return a JSON object with exactly these keys:
+Reply with ONLY a JSON object (no prose, no code fences) with exactly these keys:
 - "wants_booking": true if the user wants to book/schedule an interview, OR is supplying details \
 for a booking already in progress (current draft: {draft}); otherwise false.
 - "standalone_question": the user's message rewritten so it is understandable without the \
@@ -39,6 +39,17 @@ class _AnalysisPayload(BaseModel):
     time: str | None = None
 
 
+def _parse_payload(raw: str) -> _AnalysisPayload:
+    """Providers differ on JSON mode, so extract the first {...} block leniently."""
+    start, end = raw.find("{"), raw.rfind("}")
+    if start == -1 or end <= start:
+        return _AnalysisPayload()
+    try:
+        return _AnalysisPayload.model_validate(json.loads(raw[start : end + 1]))
+    except (json.JSONDecodeError, ValidationError):
+        return _AnalysisPayload()
+
+
 class OpenAIChatLLM:
     def __init__(self, client: AsyncOpenAI, model: str) -> None:
         self._client = client
@@ -58,15 +69,9 @@ class OpenAIChatLLM:
         completion = await self._client.chat.completions.create(
             model=self._model,
             messages=messages,
-            response_format={"type": "json_object"},
             temperature=0,
         )
-        try:
-            payload = _AnalysisPayload.model_validate(
-                json.loads(completion.choices[0].message.content or "{}")
-            )
-        except (json.JSONDecodeError, ValidationError):
-            payload = _AnalysisPayload()
+        payload = _parse_payload(completion.choices[0].message.content or "")
         return TurnAnalysis(
             wants_booking=payload.wants_booking,
             standalone_question=payload.standalone_question or message,

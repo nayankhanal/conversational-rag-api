@@ -32,12 +32,18 @@ class Container:
         engine = create_engine(settings.database_url)
         await init_models(engine)
 
-        openai_client = AsyncOpenAI(
-            api_key=settings.openai_api_key.get_secret_value(), base_url=settings.openai_base_url
+        llm_client = AsyncOpenAI(
+            api_key=settings.llm_api_key.get_secret_value(), base_url=settings.llm_base_url
         )
-        qdrant = AsyncQdrantClient(
-            url=settings.qdrant_url,
-            api_key=settings.qdrant_api_key.get_secret_value() if settings.qdrant_api_key else None,
+        qdrant = (
+            AsyncQdrantClient(
+                url=settings.qdrant_url,
+                api_key=(
+                    settings.qdrant_api_key.get_secret_value() if settings.qdrant_api_key else None
+                ),
+            )
+            if settings.qdrant_url
+            else AsyncQdrantClient(path=settings.qdrant_path)
         )
         vector_store = QdrantVectorStore(
             qdrant, settings.qdrant_collection, settings.embedding_dimensions
@@ -52,9 +58,11 @@ class Container:
             redis=redis,
             qdrant=qdrant,
             embedder=OpenAIEmbedder(
-                openai_client, settings.embedding_model, settings.embedding_dimensions
+                llm_client,
+                settings.embedding_model,
+                settings.embedding_dimensions if settings.send_embedding_dimensions else None,
             ),
-            llm=OpenAIChatLLM(openai_client, settings.chat_model),
+            llm=OpenAIChatLLM(llm_client, settings.chat_model),
             vector_store=vector_store,
             memory=RedisChatMemory(
                 redis, settings.chat_history_ttl_seconds, settings.chat_history_max_messages

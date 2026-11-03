@@ -137,3 +137,11 @@ async def test_invalid_email_is_reasked(factory: async_sessionmaker[AsyncSession
         result = await service.handle("s2", "book it")
     assert result.booking is None
     assert memory.drafts["s2"].email is None
+
+
+def test_parse_payload_tolerates_code_fences_and_garbage() -> None:
+    from app.services.llm import _parse_payload
+
+    fenced = '```json\n{"wants_booking": true, "name": "Ada", "standalone_question": "q"}\n```'
+    assert _parse_payload(fenced).name == "Ada"
+    assert _parse_payload("no json here").wants_booking is False
